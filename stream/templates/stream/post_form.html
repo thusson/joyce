@@ -27,4 +27,13 @@
     <button type="submit" class="btn btn-primary">{% if editing %}Save changes{% else %}Publish{% endif %}</button>
   </form>
 </div>
+
+<div class="card" style="margin-top: 1rem;">
+  <p class="meta">
+    Need to add an image? <a href="{% url 'image_upload' %}">Upload an image</a> first, then paste the markdown snippet into the content field above.
+  </p>
+  <p class="meta" style="margin-top: 0.25rem;">
+    Syntax: <code>![alt text](/media/images/filename.jpg)</code>
+  </p>
+</div>
 {% endblock %}

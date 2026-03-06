@@ -8,6 +8,7 @@
     {% if show_unread %} (unread){% endif %}
   </h1>
   <div style="display: flex; gap: 0.5rem;">
+    <a href="{% url 'search' %}" class="btn btn-secondary">Search</a>
     {% if show_unread %}
       <a href="{% url 'post_list' %}" class="btn btn-secondary">Show all</a>
     {% else %}

@@ -1,8 +1,16 @@
-from django.contrib.auth.models import User
-from django.test import TestCase, Client
-from django.urls import reverse
+import shutil
+import tempfile
+from io import BytesIO
 
-from .models import Post, Tag, ReadStatus, UserProfile
+from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, Client, override_settings
+from django.urls import reverse
+from PIL import Image as PILImage
+
+from .models import Comment, Image, Post, Tag, ReadStatus, UserProfile
+
+TEMP_MEDIA_ROOT = tempfile.mkdtemp()
 
 
 class PostModelTests(TestCase):
@@ -256,3 +264,263 @@ class AdminPanelTests(TestCase):
         for url in admin_urls:
             response = self.client.get(url)
             self.assertEqual(response.status_code, 403, f"Expected 403 for {url}")
+
+
+class CommentTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.admin_user = User.objects.create_user(username="admin", password="adminpass123")
+        UserProfile.objects.create(user=self.admin_user, role=UserProfile.Role.ADMIN)
+        self.contributor = User.objects.create_user(username="contributor", password="testpass123")
+        UserProfile.objects.create(user=self.contributor, role=UserProfile.Role.CONTRIBUTOR)
+        self.viewer = User.objects.create_user(username="viewer", password="testpass123")
+        UserProfile.objects.create(user=self.viewer, role=UserProfile.Role.VIEWER)
+        self.post = Post.objects.create(
+            title="Test Post", content="Content", author=self.contributor
+        )
+
+    def test_comment_model_str(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="Nice post!"
+        )
+        self.assertEqual(str(comment), "Comment by viewer on Test Post")
+
+    def test_comment_ordering(self):
+        c1 = Comment.objects.create(post=self.post, author=self.viewer, content="First")
+        c2 = Comment.objects.create(post=self.post, author=self.viewer, content="Second")
+        comments = list(self.post.comments.all())
+        self.assertEqual(comments[0], c1)
+        self.assertEqual(comments[1], c2)
+
+    def test_any_user_can_comment(self):
+        """All user types (admin, contributor, viewer) can comment."""
+        for username, password in [
+            ("admin", "adminpass123"),
+            ("contributor", "testpass123"),
+            ("viewer", "testpass123"),
+        ]:
+            self.client.login(username=username, password=password)
+            response = self.client.post(
+                reverse("post_detail", args=[self.post.pk]),
+                {"content": f"Comment from {username}"},
+            )
+            self.assertEqual(response.status_code, 302)
+        self.assertEqual(Comment.objects.filter(post=self.post).count(), 3)
+
+    def test_empty_comment_rejected(self):
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.post(
+            reverse("post_detail", args=[self.post.pk]),
+            {"content": ""},
+        )
+        self.assertEqual(response.status_code, 200)  # re-renders form with errors
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_comments_displayed_on_detail(self):
+        Comment.objects.create(post=self.post, author=self.viewer, content="Hello there!")
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.get(reverse("post_detail", args=[self.post.pk]))
+        self.assertContains(response, "Hello there!")
+        self.assertContains(response, "Comments (1)")
+
+    def test_author_can_delete_own_comment(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="My comment"
+        )
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.post(reverse("comment_delete", args=[comment.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Comment.objects.filter(pk=comment.pk).exists())
+
+    def test_admin_can_delete_any_comment(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="Viewer comment"
+        )
+        self.client.login(username="admin", password="adminpass123")
+        response = self.client.post(reverse("comment_delete", args=[comment.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Comment.objects.filter(pk=comment.pk).exists())
+
+    def test_other_user_cannot_delete_comment(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="Viewer comment"
+        )
+        self.client.login(username="contributor", password="testpass123")
+        response = self.client.post(reverse("comment_delete", args=[comment.pk]))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Comment.objects.filter(pk=comment.pk).exists())
+
+    def test_comment_delete_confirmation_page(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="To delete"
+        )
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.get(reverse("comment_delete", args=[comment.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "To delete")
+
+
+def _create_test_image(name="test.png", fmt="PNG"):
+    buf = BytesIO()
+    img = PILImage.new("RGB", (100, 100), color="red")
+    img.save(buf, format=fmt)
+    buf.seek(0)
+    return SimpleUploadedFile(name, buf.read(), content_type=f"image/{fmt.lower()}")
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class ImageUploadTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.contributor = User.objects.create_user(username="contributor", password="testpass123")
+        UserProfile.objects.create(user=self.contributor, role=UserProfile.Role.CONTRIBUTOR)
+        self.viewer = User.objects.create_user(username="viewer", password="testpass123")
+        UserProfile.objects.create(user=self.viewer, role=UserProfile.Role.VIEWER)
+        self.admin_user = User.objects.create_user(username="admin", password="adminpass123")
+        UserProfile.objects.create(user=self.admin_user, role=UserProfile.Role.ADMIN)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
+    def test_contributor_can_upload_image(self):
+        self.client.login(username="contributor", password="testpass123")
+        image_file = _create_test_image()
+        response = self.client.post(reverse("image_upload"), {
+            "image": image_file,
+            "alt_text": "A red square",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Image.objects.count(), 1)
+        img = Image.objects.first()
+        self.assertEqual(img.alt_text, "A red square")
+        self.assertEqual(img.uploader, self.contributor)
+        self.assertContains(response, "Image uploaded successfully")
+
+    def test_admin_can_upload_image(self):
+        self.client.login(username="admin", password="adminpass123")
+        image_file = _create_test_image()
+        response = self.client.post(reverse("image_upload"), {
+            "image": image_file,
+            "alt_text": "",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Image.objects.count(), 1)
+
+    def test_viewer_cannot_upload_image(self):
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.get(reverse("image_upload"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_upload_page_shows_markdown_snippet(self):
+        self.client.login(username="contributor", password="testpass123")
+        image_file = _create_test_image()
+        response = self.client.post(reverse("image_upload"), {
+            "image": image_file,
+            "alt_text": "My image",
+        })
+        self.assertContains(response, "![My image]")
+        self.assertContains(response, "/media/images/")
+
+    def test_upload_page_shows_recent_images(self):
+        self.client.login(username="contributor", password="testpass123")
+        # Upload two images
+        for i in range(2):
+            self.client.post(reverse("image_upload"), {
+                "image": _create_test_image(name=f"test{i}.png"),
+                "alt_text": f"Image {i}",
+            })
+        response = self.client.get(reverse("image_upload"))
+        self.assertContains(response, "Image 0")
+        self.assertContains(response, "Image 1")
+
+    def test_image_model_str(self):
+        self.client.login(username="contributor", password="testpass123")
+        img = Image(uploader=self.contributor, alt_text="Test alt")
+        self.assertEqual(str(img), "Test alt")
+
+    def test_image_model_str_no_alt(self):
+        img = Image(uploader=self.contributor, alt_text="")
+        img.image.name = "images/2026/03/photo.png"
+        self.assertEqual(str(img), "images/2026/03/photo.png")
+
+    def test_post_form_shows_image_upload_link(self):
+        self.client.login(username="contributor", password="testpass123")
+        response = self.client.get(reverse("post_create"))
+        self.assertContains(response, "Upload an image")
+        self.assertContains(response, reverse("image_upload"))
+
+    def test_inline_image_renders_in_post(self):
+        """Markdown image syntax in post content renders as an <img> tag."""
+        post = Post.objects.create(
+            title="Image Post",
+            content="Look at this: ![photo](/media/images/test.png)",
+            author=self.contributor,
+        )
+        self.client.login(username="contributor", password="testpass123")
+        response = self.client.get(reverse("post_detail", args=[post.pk]))
+        self.assertContains(response, '<img alt="photo" src="/media/images/test.png"')
+
+
+class SearchTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        UserProfile.objects.create(user=self.user, role=UserProfile.Role.CONTRIBUTOR)
+        self.post1 = Post.objects.create(
+            title="Django Tips", content="How to use querysets effectively.", author=self.user
+        )
+        self.post2 = Post.objects.create(
+            title="Python News", content="Django 5.2 has been released.", author=self.user
+        )
+        self.post3 = Post.objects.create(
+            title="Cooking Recipe", content="How to bake bread.", author=self.user
+        )
+
+    def test_search_requires_login(self):
+        response = self.client.get(reverse("search") + "?q=django")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response.url)
+
+    def test_search_by_title(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=Django")
+        self.assertContains(response, "Django Tips")
+        self.assertNotContains(response, "Cooking Recipe")
+
+    def test_search_by_content(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=querysets")
+        self.assertContains(response, "Django Tips")
+        self.assertNotContains(response, "Cooking Recipe")
+
+    def test_search_case_insensitive(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=django")
+        # Should find "Django Tips" (title) and "Python News" (content mentions Django)
+        self.assertContains(response, "Django Tips")
+        self.assertContains(response, "Python News")
+
+    def test_search_empty_query(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Django Tips")
+        self.assertNotContains(response, "result")
+
+    def test_search_no_results(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=nonexistent")
+        self.assertContains(response, "0 results")
+        self.assertContains(response, "No posts match your search")
+
+    def test_search_result_count_displayed(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=django")
+        self.assertContains(response, "2 results")
+
+    def test_post_list_has_search_link(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("post_list"))
+        self.assertContains(response, reverse("search"))

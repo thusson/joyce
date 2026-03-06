@@ -4,13 +4,14 @@ import markdown
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
 from django.db import models as db_models
 
-from .forms import PostForm, TagForm, UserCreateForm, UserRoleForm
-from .models import Post, ReadStatus, Tag, UserProfile
+from .forms import CommentForm, ImageUploadForm, PostForm, TagForm, UserCreateForm, UserRoleForm
+from .models import Comment, Image, Post, ReadStatus, Tag, UserProfile
 
 
 def _get_profile(user):
@@ -64,9 +65,21 @@ def post_detail(request, pk):
 
     ReadStatus.objects.get_or_create(user=request.user, post=post)
 
+    if request.method == "POST":
+        comment_form = CommentForm(request.POST)
+        if comment_form.is_valid():
+            comment = comment_form.save(commit=False)
+            comment.post = post
+            comment.author = request.user
+            comment.save()
+            return redirect("post_detail", pk=post.pk)
+    else:
+        comment_form = CommentForm()
+
     md = markdown.Markdown(extensions=["fenced_code", "tables", "nl2br"])
     content_html = md.convert(post.content)
     profile = _get_profile(request.user)
+    comments = post.comments.select_related("author")
 
     return render(
         request,
@@ -75,6 +88,8 @@ def post_detail(request, pk):
             "post": post,
             "content_html": content_html,
             "profile": profile,
+            "comments": comments,
+            "comment_form": comment_form,
         },
     )
 
@@ -138,6 +153,69 @@ def mark_unread(request, pk):
     if request.method == "POST":
         ReadStatus.objects.filter(user=request.user, post_id=pk).delete()
     return redirect("post_list")
+
+
+@login_required
+def search(request):
+    query = request.GET.get("q", "").strip()
+    posts = Post.objects.none()
+
+    if query:
+        posts = (
+            Post.objects.select_related("author")
+            .prefetch_related("tags")
+            .filter(Q(title__icontains=query) | Q(content__icontains=query))
+        )
+
+    return render(request, "stream/search.html", {
+        "query": query,
+        "posts": posts,
+    })
+
+
+@login_required
+def image_upload(request):
+    profile = _get_profile(request.user)
+    if not profile.can_create_post:
+        return HttpResponseForbidden("You do not have permission to upload images.")
+
+    uploaded_image = None
+    if request.method == "POST":
+        form = ImageUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            image = form.save(commit=False)
+            image.uploader = request.user
+            image.save()
+            uploaded_image = image
+            form = ImageUploadForm()
+    else:
+        form = ImageUploadForm()
+
+    recent_images = Image.objects.filter(uploader=request.user)[:10]
+
+    return render(request, "stream/image_upload.html", {
+        "form": form,
+        "uploaded_image": uploaded_image,
+        "recent_images": recent_images,
+    })
+
+
+@login_required
+def comment_delete(request, pk):
+    comment = get_object_or_404(Comment.objects.select_related("post"), pk=pk)
+    profile = _get_profile(request.user)
+
+    if not (profile.is_admin or comment.author == request.user):
+        return HttpResponseForbidden("You do not have permission to delete this comment.")
+
+    post_pk = comment.post.pk
+    if request.method == "POST":
+        comment.delete()
+        return redirect("post_detail", pk=post_pk)
+
+    return render(request, "stream/comment_confirm_delete.html", {
+        "comment": comment,
+    })
 
 
 # ---------------------------------------------------------------------------

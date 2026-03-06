@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import Post, Tag, UserProfile
+from .models import Comment, Image, Post, Tag, UserProfile
 
 
 class PostForm(forms.ModelForm):
@@ -18,6 +18,31 @@ class PostForm(forms.ModelForm):
             "title": forms.TextInput(attrs={"class": "form-input"}),
             "content": forms.Textarea(attrs={"rows": 15, "class": "form-input"}),
             "priority": forms.Select(attrs={"class": "form-input"}),
+        }
+
+
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = Comment
+        fields = ["content"]
+        widgets = {
+            "content": forms.Textarea(attrs={"rows": 3, "class": "form-input", "placeholder": "Write a comment..."}),
+        }
+        labels = {
+            "content": "",
+        }
+
+
+class ImageUploadForm(forms.ModelForm):
+    class Meta:
+        model = Image
+        fields = ["image", "alt_text"]
+        widgets = {
+            "image": forms.ClearableFileInput(attrs={"class": "form-input", "accept": "image/*"}),
+            "alt_text": forms.TextInput(attrs={"class": "form-input", "placeholder": "Image description (optional)"}),
+        }
+        labels = {
+            "alt_text": "Alt text",
         }
 
 
