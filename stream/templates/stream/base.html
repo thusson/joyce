@@ -44,6 +44,16 @@
     .content-body img { max-width: 100%; height: auto; }
     .content-body table { border-collapse: collapse; margin-bottom: 0.75rem; }
     .content-body th, .content-body td { border: 1px solid #cbd5e1; padding: 0.4rem 0.75rem; }
+    table.data-table { width: 100%; border-collapse: collapse; }
+    table.data-table th { text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #64748b; padding: 0.5rem 0.75rem; border-bottom: 2px solid #e2e8f0; }
+    table.data-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+    table.data-table tr:last-child td { border-bottom: none; }
+    .admin-nav { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .admin-nav a { padding: 0.4rem 0.85rem; border-radius: 4px; background: #e2e8f0; color: #334155; font-size: 0.875rem; }
+    .admin-nav a:hover { text-decoration: none; background: #cbd5e1; }
+    .admin-nav a.active { background: #1e293b; color: #fff; }
+    .badge { display: inline-block; background: #e2e8f0; color: #334155; padding: 0.1rem 0.5rem; border-radius: 3px; font-size: 0.8rem; }
+    .badge-inactive { background: #fee2e2; color: #991b1b; }
   </style>
 </head>
 <body>
@@ -52,6 +62,7 @@
       <a href="{% url 'post_list' %}" class="site-title">Joyce</a>
       <div class="nav-links">
         {% if user.is_authenticated %}
+          {% if user_profile.is_admin %}<a href="{% url 'admin_dashboard' %}">Manage</a>{% endif %}
           <span>{{ user.username }}</span>
           <a href="{% url 'logout' %}">Log out</a>
         {% else %}

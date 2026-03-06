@@ -1,0 +1,21 @@
+{% extends "stream/base.html" %}
+{% block title %}Manage — Joyce{% endblock %}
+{% block content %}
+{% include "stream/admin/nav.html" with active_section="dashboard" %}
+<h1 style="font-size: 1.5rem; margin-bottom: 1rem;">Manage</h1>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+  <a href="{% url 'admin_post_list' %}" class="card" style="text-align: center;">
+    <div style="font-size: 2rem; font-weight: 700; color: #2563eb;">{{ post_count }}</div>
+    <div class="meta">Posts</div>
+  </a>
+  <a href="{% url 'admin_tag_list' %}" class="card" style="text-align: center;">
+    <div style="font-size: 2rem; font-weight: 700; color: #2563eb;">{{ tag_count }}</div>
+    <div class="meta">Tags</div>
+  </a>
+  <a href="{% url 'admin_user_list' %}" class="card" style="text-align: center;">
+    <div style="font-size: 2rem; font-weight: 700; color: #2563eb;">{{ user_count }}</div>
+    <div class="meta">Users</div>
+  </a>
+</div>
+{% endblock %}

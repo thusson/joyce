@@ -1,6 +1,7 @@
 from django import forms
+from django.contrib.auth.models import User
 
-from .models import Post, Tag
+from .models import Post, Tag, UserProfile
 
 
 class PostForm(forms.ModelForm):
@@ -17,4 +18,42 @@ class PostForm(forms.ModelForm):
             "title": forms.TextInput(attrs={"class": "form-input"}),
             "content": forms.Textarea(attrs={"rows": 15, "class": "form-input"}),
             "priority": forms.Select(attrs={"class": "form-input"}),
+        }
+
+
+class TagForm(forms.ModelForm):
+    class Meta:
+        model = Tag
+        fields = ["name", "slug"]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-input"}),
+            "slug": forms.TextInput(attrs={"class": "form-input"}),
+        }
+
+
+class UserRoleForm(forms.ModelForm):
+    class Meta:
+        model = UserProfile
+        fields = ["role"]
+        widgets = {
+            "role": forms.Select(attrs={"class": "form-input"}),
+        }
+
+
+class UserCreateForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput(attrs={"class": "form-input"}))
+    role = forms.ChoiceField(
+        choices=UserProfile.Role.choices,
+        initial=UserProfile.Role.VIEWER,
+        widget=forms.Select(attrs={"class": "form-input"}),
+    )
+
+    class Meta:
+        model = User
+        fields = ["username", "first_name", "last_name", "email"]
+        widgets = {
+            "username": forms.TextInput(attrs={"class": "form-input"}),
+            "first_name": forms.TextInput(attrs={"class": "form-input"}),
+            "last_name": forms.TextInput(attrs={"class": "form-input"}),
+            "email": forms.EmailInput(attrs={"class": "form-input"}),
         }

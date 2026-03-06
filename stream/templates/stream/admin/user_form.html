@@ -1,0 +1,24 @@
+{% extends "stream/base.html" %}
+{% block title %}New user — Joyce{% endblock %}
+{% block content %}
+{% include "stream/admin/nav.html" with active_section="users" %}
+<div style="margin-bottom: 1rem;">
+  <a href="{% url 'admin_user_list' %}">&larr; Back to users</a>
+</div>
+<div class="card">
+  <h1 style="font-size: 1.5rem; margin-bottom: 1rem;">New user</h1>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}
+          <p style="color: #dc2626; font-size: 0.85rem;">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Create user</button>
+  </form>
+</div>
+{% endblock %}
