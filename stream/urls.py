@@ -9,6 +9,7 @@ urlpatterns = [
     path("post/<int:pk>/edit/", views.post_edit, name="post_edit"),
     path("post/<int:pk>/delete/", views.post_delete, name="post_delete"),
     path("post/<int:pk>/mark-unread/", views.mark_unread, name="mark_unread"),
+    path("comment/<int:pk>/delete/", views.comment_delete, name="comment_delete"),
 
     # Admin panel
     path("manage/", views.admin_dashboard, name="admin_dashboard"),

@@ -31,4 +31,34 @@
   <a href="{% url 'post_delete' pk=post.pk %}" class="btn btn-danger">Delete</a>
 </div>
 {% endif %}
+
+<div style="margin-top: 2rem;">
+  <h2 style="font-size: 1.2rem; margin-bottom: 1rem;">Comments ({{ comments|length }})</h2>
+
+  {% for comment in comments %}
+  <div class="card" style="margin-bottom: 0.75rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+      <span class="meta"><strong>{{ comment.author.username }}</strong> · {{ comment.created_at|date:"M j, Y g:i A" }}</span>
+      {% if profile.is_admin or comment.author == request.user %}
+        <a href="{% url 'comment_delete' pk=comment.pk %}" class="btn btn-danger" style="font-size: 0.75rem; padding: 0.15rem 0.5rem;">Delete</a>
+      {% endif %}
+    </div>
+    <p style="margin: 0; white-space: pre-wrap;">{{ comment.content }}</p>
+  </div>
+  {% empty %}
+    <p class="meta">No comments yet.</p>
+  {% endfor %}
+
+  <div class="card" style="margin-top: 1rem;">
+    <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Add a comment</h3>
+    <form method="post">
+      {% csrf_token %}
+      {{ comment_form.content }}
+      {% if comment_form.content.errors %}
+        <div style="color: #c0392b; font-size: 0.85rem;">{{ comment_form.content.errors }}</div>
+      {% endif %}
+      <button type="submit" class="btn" style="margin-top: 0.5rem;">Post Comment</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

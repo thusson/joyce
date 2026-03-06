@@ -9,8 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from django.db import models as db_models
 
-from .forms import PostForm, TagForm, UserCreateForm, UserRoleForm
-from .models import Post, ReadStatus, Tag, UserProfile
+from .forms import CommentForm, PostForm, TagForm, UserCreateForm, UserRoleForm
+from .models import Comment, Post, ReadStatus, Tag, UserProfile
 
 
 def _get_profile(user):
@@ -64,9 +64,21 @@ def post_detail(request, pk):
 
     ReadStatus.objects.get_or_create(user=request.user, post=post)
 
+    if request.method == "POST":
+        comment_form = CommentForm(request.POST)
+        if comment_form.is_valid():
+            comment = comment_form.save(commit=False)
+            comment.post = post
+            comment.author = request.user
+            comment.save()
+            return redirect("post_detail", pk=post.pk)
+    else:
+        comment_form = CommentForm()
+
     md = markdown.Markdown(extensions=["fenced_code", "tables", "nl2br"])
     content_html = md.convert(post.content)
     profile = _get_profile(request.user)
+    comments = post.comments.select_related("author")
 
     return render(
         request,
@@ -75,6 +87,8 @@ def post_detail(request, pk):
             "post": post,
             "content_html": content_html,
             "profile": profile,
+            "comments": comments,
+            "comment_form": comment_form,
         },
     )
 
@@ -138,6 +152,24 @@ def mark_unread(request, pk):
     if request.method == "POST":
         ReadStatus.objects.filter(user=request.user, post_id=pk).delete()
     return redirect("post_list")
+
+
+@login_required
+def comment_delete(request, pk):
+    comment = get_object_or_404(Comment.objects.select_related("post"), pk=pk)
+    profile = _get_profile(request.user)
+
+    if not (profile.is_admin or comment.author == request.user):
+        return HttpResponseForbidden("You do not have permission to delete this comment.")
+
+    post_pk = comment.post.pk
+    if request.method == "POST":
+        comment.delete()
+        return redirect("post_detail", pk=post_pk)
+
+    return render(request, "stream/comment_confirm_delete.html", {
+        "comment": comment,
+    })
 
 
 # ---------------------------------------------------------------------------

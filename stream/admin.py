@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Post, ReadStatus, Tag, UserProfile
+from .models import Comment, Post, ReadStatus, Tag, UserProfile
 
 
 @admin.register(Tag)
@@ -21,6 +21,13 @@ class PostAdmin(admin.ModelAdmin):
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "role")
     list_filter = ("role",)
+
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ("author", "post", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("content",)
 
 
 @admin.register(ReadStatus)

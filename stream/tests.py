@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, Client
 from django.urls import reverse
 
-from .models import Post, Tag, ReadStatus, UserProfile
+from .models import Comment, Post, Tag, ReadStatus, UserProfile
 
 
 class PostModelTests(TestCase):
@@ -256,3 +256,97 @@ class AdminPanelTests(TestCase):
         for url in admin_urls:
             response = self.client.get(url)
             self.assertEqual(response.status_code, 403, f"Expected 403 for {url}")
+
+
+class CommentTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.admin_user = User.objects.create_user(username="admin", password="adminpass123")
+        UserProfile.objects.create(user=self.admin_user, role=UserProfile.Role.ADMIN)
+        self.contributor = User.objects.create_user(username="contributor", password="testpass123")
+        UserProfile.objects.create(user=self.contributor, role=UserProfile.Role.CONTRIBUTOR)
+        self.viewer = User.objects.create_user(username="viewer", password="testpass123")
+        UserProfile.objects.create(user=self.viewer, role=UserProfile.Role.VIEWER)
+        self.post = Post.objects.create(
+            title="Test Post", content="Content", author=self.contributor
+        )
+
+    def test_comment_model_str(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="Nice post!"
+        )
+        self.assertEqual(str(comment), "Comment by viewer on Test Post")
+
+    def test_comment_ordering(self):
+        c1 = Comment.objects.create(post=self.post, author=self.viewer, content="First")
+        c2 = Comment.objects.create(post=self.post, author=self.viewer, content="Second")
+        comments = list(self.post.comments.all())
+        self.assertEqual(comments[0], c1)
+        self.assertEqual(comments[1], c2)
+
+    def test_any_user_can_comment(self):
+        """All user types (admin, contributor, viewer) can comment."""
+        for username, password in [
+            ("admin", "adminpass123"),
+            ("contributor", "testpass123"),
+            ("viewer", "testpass123"),
+        ]:
+            self.client.login(username=username, password=password)
+            response = self.client.post(
+                reverse("post_detail", args=[self.post.pk]),
+                {"content": f"Comment from {username}"},
+            )
+            self.assertEqual(response.status_code, 302)
+        self.assertEqual(Comment.objects.filter(post=self.post).count(), 3)
+
+    def test_empty_comment_rejected(self):
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.post(
+            reverse("post_detail", args=[self.post.pk]),
+            {"content": ""},
+        )
+        self.assertEqual(response.status_code, 200)  # re-renders form with errors
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_comments_displayed_on_detail(self):
+        Comment.objects.create(post=self.post, author=self.viewer, content="Hello there!")
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.get(reverse("post_detail", args=[self.post.pk]))
+        self.assertContains(response, "Hello there!")
+        self.assertContains(response, "Comments (1)")
+
+    def test_author_can_delete_own_comment(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="My comment"
+        )
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.post(reverse("comment_delete", args=[comment.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Comment.objects.filter(pk=comment.pk).exists())
+
+    def test_admin_can_delete_any_comment(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="Viewer comment"
+        )
+        self.client.login(username="admin", password="adminpass123")
+        response = self.client.post(reverse("comment_delete", args=[comment.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Comment.objects.filter(pk=comment.pk).exists())
+
+    def test_other_user_cannot_delete_comment(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="Viewer comment"
+        )
+        self.client.login(username="contributor", password="testpass123")
+        response = self.client.post(reverse("comment_delete", args=[comment.pk]))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Comment.objects.filter(pk=comment.pk).exists())
+
+    def test_comment_delete_confirmation_page(self):
+        comment = Comment.objects.create(
+            post=self.post, author=self.viewer, content="To delete"
+        )
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.get(reverse("comment_delete", args=[comment.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "To delete")

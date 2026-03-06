@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import Post, Tag, UserProfile
+from .models import Comment, Post, Tag, UserProfile
 
 
 class PostForm(forms.ModelForm):
@@ -18,6 +18,18 @@ class PostForm(forms.ModelForm):
             "title": forms.TextInput(attrs={"class": "form-input"}),
             "content": forms.Textarea(attrs={"rows": 15, "class": "form-input"}),
             "priority": forms.Select(attrs={"class": "form-input"}),
+        }
+
+
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = Comment
+        fields = ["content"]
+        widgets = {
+            "content": forms.Textarea(attrs={"rows": 3, "class": "form-input", "placeholder": "Write a comment..."}),
+        }
+        labels = {
+            "content": "",
         }
 
 
