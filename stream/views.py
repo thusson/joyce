@@ -4,6 +4,7 @@ import markdown
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -152,6 +153,24 @@ def mark_unread(request, pk):
     if request.method == "POST":
         ReadStatus.objects.filter(user=request.user, post_id=pk).delete()
     return redirect("post_list")
+
+
+@login_required
+def search(request):
+    query = request.GET.get("q", "").strip()
+    posts = Post.objects.none()
+
+    if query:
+        posts = (
+            Post.objects.select_related("author")
+            .prefetch_related("tags")
+            .filter(Q(title__icontains=query) | Q(content__icontains=query))
+        )
+
+    return render(request, "stream/search.html", {
+        "query": query,
+        "posts": posts,
+    })
 
 
 @login_required

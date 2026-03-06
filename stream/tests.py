@@ -461,3 +461,66 @@ class ImageUploadTests(TestCase):
         self.client.login(username="contributor", password="testpass123")
         response = self.client.get(reverse("post_detail", args=[post.pk]))
         self.assertContains(response, '<img alt="photo" src="/media/images/test.png"')
+
+
+class SearchTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        UserProfile.objects.create(user=self.user, role=UserProfile.Role.CONTRIBUTOR)
+        self.post1 = Post.objects.create(
+            title="Django Tips", content="How to use querysets effectively.", author=self.user
+        )
+        self.post2 = Post.objects.create(
+            title="Python News", content="Django 5.2 has been released.", author=self.user
+        )
+        self.post3 = Post.objects.create(
+            title="Cooking Recipe", content="How to bake bread.", author=self.user
+        )
+
+    def test_search_requires_login(self):
+        response = self.client.get(reverse("search") + "?q=django")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response.url)
+
+    def test_search_by_title(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=Django")
+        self.assertContains(response, "Django Tips")
+        self.assertNotContains(response, "Cooking Recipe")
+
+    def test_search_by_content(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=querysets")
+        self.assertContains(response, "Django Tips")
+        self.assertNotContains(response, "Cooking Recipe")
+
+    def test_search_case_insensitive(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=django")
+        # Should find "Django Tips" (title) and "Python News" (content mentions Django)
+        self.assertContains(response, "Django Tips")
+        self.assertContains(response, "Python News")
+
+    def test_search_empty_query(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Django Tips")
+        self.assertNotContains(response, "result")
+
+    def test_search_no_results(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=nonexistent")
+        self.assertContains(response, "0 results")
+        self.assertContains(response, "No posts match your search")
+
+    def test_search_result_count_displayed(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("search") + "?q=django")
+        self.assertContains(response, "2 results")
+
+    def test_post_list_has_search_link(self):
+        self.client.login(username="testuser", password="testpass123")
+        response = self.client.get(reverse("post_list"))
+        self.assertContains(response, reverse("search"))
