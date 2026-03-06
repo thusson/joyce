@@ -1,8 +1,16 @@
-from django.contrib.auth.models import User
-from django.test import TestCase, Client
-from django.urls import reverse
+import shutil
+import tempfile
+from io import BytesIO
 
-from .models import Comment, Post, Tag, ReadStatus, UserProfile
+from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, Client, override_settings
+from django.urls import reverse
+from PIL import Image as PILImage
+
+from .models import Comment, Image, Post, Tag, ReadStatus, UserProfile
+
+TEMP_MEDIA_ROOT = tempfile.mkdtemp()
 
 
 class PostModelTests(TestCase):
@@ -350,3 +358,106 @@ class CommentTests(TestCase):
         response = self.client.get(reverse("comment_delete", args=[comment.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "To delete")
+
+
+def _create_test_image(name="test.png", fmt="PNG"):
+    buf = BytesIO()
+    img = PILImage.new("RGB", (100, 100), color="red")
+    img.save(buf, format=fmt)
+    buf.seek(0)
+    return SimpleUploadedFile(name, buf.read(), content_type=f"image/{fmt.lower()}")
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class ImageUploadTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.contributor = User.objects.create_user(username="contributor", password="testpass123")
+        UserProfile.objects.create(user=self.contributor, role=UserProfile.Role.CONTRIBUTOR)
+        self.viewer = User.objects.create_user(username="viewer", password="testpass123")
+        UserProfile.objects.create(user=self.viewer, role=UserProfile.Role.VIEWER)
+        self.admin_user = User.objects.create_user(username="admin", password="adminpass123")
+        UserProfile.objects.create(user=self.admin_user, role=UserProfile.Role.ADMIN)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
+    def test_contributor_can_upload_image(self):
+        self.client.login(username="contributor", password="testpass123")
+        image_file = _create_test_image()
+        response = self.client.post(reverse("image_upload"), {
+            "image": image_file,
+            "alt_text": "A red square",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Image.objects.count(), 1)
+        img = Image.objects.first()
+        self.assertEqual(img.alt_text, "A red square")
+        self.assertEqual(img.uploader, self.contributor)
+        self.assertContains(response, "Image uploaded successfully")
+
+    def test_admin_can_upload_image(self):
+        self.client.login(username="admin", password="adminpass123")
+        image_file = _create_test_image()
+        response = self.client.post(reverse("image_upload"), {
+            "image": image_file,
+            "alt_text": "",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Image.objects.count(), 1)
+
+    def test_viewer_cannot_upload_image(self):
+        self.client.login(username="viewer", password="testpass123")
+        response = self.client.get(reverse("image_upload"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_upload_page_shows_markdown_snippet(self):
+        self.client.login(username="contributor", password="testpass123")
+        image_file = _create_test_image()
+        response = self.client.post(reverse("image_upload"), {
+            "image": image_file,
+            "alt_text": "My image",
+        })
+        self.assertContains(response, "![My image]")
+        self.assertContains(response, "/media/images/")
+
+    def test_upload_page_shows_recent_images(self):
+        self.client.login(username="contributor", password="testpass123")
+        # Upload two images
+        for i in range(2):
+            self.client.post(reverse("image_upload"), {
+                "image": _create_test_image(name=f"test{i}.png"),
+                "alt_text": f"Image {i}",
+            })
+        response = self.client.get(reverse("image_upload"))
+        self.assertContains(response, "Image 0")
+        self.assertContains(response, "Image 1")
+
+    def test_image_model_str(self):
+        self.client.login(username="contributor", password="testpass123")
+        img = Image(uploader=self.contributor, alt_text="Test alt")
+        self.assertEqual(str(img), "Test alt")
+
+    def test_image_model_str_no_alt(self):
+        img = Image(uploader=self.contributor, alt_text="")
+        img.image.name = "images/2026/03/photo.png"
+        self.assertEqual(str(img), "images/2026/03/photo.png")
+
+    def test_post_form_shows_image_upload_link(self):
+        self.client.login(username="contributor", password="testpass123")
+        response = self.client.get(reverse("post_create"))
+        self.assertContains(response, "Upload an image")
+        self.assertContains(response, reverse("image_upload"))
+
+    def test_inline_image_renders_in_post(self):
+        """Markdown image syntax in post content renders as an <img> tag."""
+        post = Post.objects.create(
+            title="Image Post",
+            content="Look at this: ![photo](/media/images/test.png)",
+            author=self.contributor,
+        )
+        self.client.login(username="contributor", password="testpass123")
+        response = self.client.get(reverse("post_detail", args=[post.pk]))
+        self.assertContains(response, '<img alt="photo" src="/media/images/test.png"')

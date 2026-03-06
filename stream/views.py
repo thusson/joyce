@@ -9,8 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from django.db import models as db_models
 
-from .forms import CommentForm, PostForm, TagForm, UserCreateForm, UserRoleForm
-from .models import Comment, Post, ReadStatus, Tag, UserProfile
+from .forms import CommentForm, ImageUploadForm, PostForm, TagForm, UserCreateForm, UserRoleForm
+from .models import Comment, Image, Post, ReadStatus, Tag, UserProfile
 
 
 def _get_profile(user):
@@ -152,6 +152,33 @@ def mark_unread(request, pk):
     if request.method == "POST":
         ReadStatus.objects.filter(user=request.user, post_id=pk).delete()
     return redirect("post_list")
+
+
+@login_required
+def image_upload(request):
+    profile = _get_profile(request.user)
+    if not profile.can_create_post:
+        return HttpResponseForbidden("You do not have permission to upload images.")
+
+    uploaded_image = None
+    if request.method == "POST":
+        form = ImageUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            image = form.save(commit=False)
+            image.uploader = request.user
+            image.save()
+            uploaded_image = image
+            form = ImageUploadForm()
+    else:
+        form = ImageUploadForm()
+
+    recent_images = Image.objects.filter(uploader=request.user)[:10]
+
+    return render(request, "stream/image_upload.html", {
+        "form": form,
+        "uploaded_image": uploaded_image,
+        "recent_images": recent_images,
+    })
 
 
 @login_required

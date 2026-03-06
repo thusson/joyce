@@ -1,0 +1,49 @@
+{% extends "stream/base.html" %}
+{% block title %}Upload Image — Joyce{% endblock %}
+{% block content %}
+<div style="margin-bottom: 1rem;">
+  <a href="{% url 'post_list' %}">&larr; Back to stream</a>
+</div>
+
+<div class="card">
+  <h1 style="font-size: 1.5rem; margin-bottom: 1rem;">Upload Image</h1>
+  <p class="meta" style="margin-bottom: 1rem;">Upload an image, then copy the markdown snippet into your post content.</p>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}
+          <p style="color: #dc2626; font-size: 0.85rem;">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Upload</button>
+  </form>
+</div>
+
+{% if uploaded_image %}
+<div class="card" style="border: 2px solid #22c55e;">
+  <h2 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Image uploaded successfully</h2>
+  <p class="meta" style="margin-bottom: 0.5rem;">Copy this markdown into your post:</p>
+  <pre style="background: #f1f5f9; padding: 0.75rem; border-radius: 4px; overflow-x: auto; user-select: all;">![{{ uploaded_image.alt_text|default:"image" }}]({{ uploaded_image.image.url }})</pre>
+  <img src="{{ uploaded_image.image.url }}" alt="{{ uploaded_image.alt_text }}" style="max-width: 300px; max-height: 200px; margin-top: 0.5rem; border-radius: 4px;">
+</div>
+{% endif %}
+
+{% if recent_images %}
+<div class="card">
+  <h2 style="font-size: 1.1rem; margin-bottom: 0.75rem;">Your recent images</h2>
+  {% for img in recent_images %}
+  <div style="display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0; {% if not forloop.last %}border-bottom: 1px solid #e2e8f0;{% endif %}">
+    <img src="{{ img.image.url }}" alt="{{ img.alt_text }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+    <div style="flex: 1; min-width: 0;">
+      <code style="background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.8rem; word-break: break-all;">![{{ img.alt_text|default:"image" }}]({{ img.image.url }})</code>
+      <div class="meta" style="margin-top: 0.15rem;">{{ img.uploaded_at|date:"M j, Y g:i A" }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

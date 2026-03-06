@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Comment, Post, ReadStatus, Tag, UserProfile
+from .models import Comment, Image, Post, ReadStatus, Tag, UserProfile
 
 
 @admin.register(Tag)
@@ -28,6 +28,12 @@ class CommentAdmin(admin.ModelAdmin):
     list_display = ("author", "post", "created_at")
     list_filter = ("created_at",)
     search_fields = ("content",)
+
+
+@admin.register(Image)
+class ImageAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "uploader", "uploaded_at")
+    list_filter = ("uploaded_at",)
 
 
 @admin.register(ReadStatus)

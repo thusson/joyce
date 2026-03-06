@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import Comment, Post, Tag, UserProfile
+from .models import Comment, Image, Post, Tag, UserProfile
 
 
 class PostForm(forms.ModelForm):
@@ -30,6 +30,19 @@ class CommentForm(forms.ModelForm):
         }
         labels = {
             "content": "",
+        }
+
+
+class ImageUploadForm(forms.ModelForm):
+    class Meta:
+        model = Image
+        fields = ["image", "alt_text"]
+        widgets = {
+            "image": forms.ClearableFileInput(attrs={"class": "form-input", "accept": "image/*"}),
+            "alt_text": forms.TextInput(attrs={"class": "form-input", "placeholder": "Image description (optional)"}),
+        }
+        labels = {
+            "alt_text": "Alt text",
         }
 
 
