@@ -10,7 +10,9 @@ SECRET_KEY = "django-insecure-=hif$_o6&iv(1-c@y)=5ot3-5)5pxd*p1)gj4!3l%mvspek^9^
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [".sagemaker.aws", "localhost", "127.0.0.1"]
+
+CSRF_TRUSTED_ORIGINS = ["https://*.studio.us-east-1.sagemaker.aws"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
