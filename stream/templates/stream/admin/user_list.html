@@ -1,0 +1,56 @@
+{% extends "stream/base.html" %}
+{% block title %}Manage Users — Joyce{% endblock %}
+{% block content %}
+{% include "stream/admin/nav.html" with active_section="users" %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+  <h1 style="font-size: 1.5rem;">Users</h1>
+  <a href="{% url 'admin_user_create' %}" class="btn btn-primary">New user</a>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Name</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td><strong>{{ u.username }}</strong></td>
+        <td>{{ u.get_full_name|default:"—" }}</td>
+        <td>
+          {% if u.profile %}
+            <span class="badge">{{ u.profile.get_role_display }}</span>
+          {% else %}
+            <span class="badge">Viewer</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if u.is_active %}
+            <span class="badge">Active</span>
+          {% else %}
+            <span class="badge badge-inactive">Inactive</span>
+          {% endif %}
+        </td>
+        <td style="text-align: right;">
+          <a href="{% url 'admin_user_edit' pk=u.pk %}" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Edit role</a>
+          <form method="post" action="{% url 'admin_user_toggle_active' pk=u.pk %}" style="display: inline;">
+            {% csrf_token %}
+            {% if u.is_active %}
+              <button type="submit" class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Deactivate</button>
+            {% else %}
+              <button type="submit" class="btn btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Activate</button>
+            {% endif %}
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

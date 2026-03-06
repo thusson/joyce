@@ -1,0 +1,6 @@
+<div class="admin-nav">
+  <a href="{% url 'admin_dashboard' %}" class="{% if active_section == 'dashboard' %}active{% endif %}">Dashboard</a>
+  <a href="{% url 'admin_post_list' %}" class="{% if active_section == 'posts' %}active{% endif %}">Posts</a>
+  <a href="{% url 'admin_tag_list' %}" class="{% if active_section == 'tags' %}active{% endif %}">Tags</a>
+  <a href="{% url 'admin_user_list' %}" class="{% if active_section == 'users' %}active{% endif %}">Users</a>
+</div>

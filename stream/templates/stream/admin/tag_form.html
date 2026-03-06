@@ -1,0 +1,24 @@
+{% extends "stream/base.html" %}
+{% block title %}{% if editing %}Edit tag{% else %}New tag{% endif %} — Joyce{% endblock %}
+{% block content %}
+{% include "stream/admin/nav.html" with active_section="tags" %}
+<div style="margin-bottom: 1rem;">
+  <a href="{% url 'admin_tag_list' %}">&larr; Back to tags</a>
+</div>
+<div class="card">
+  <h1 style="font-size: 1.5rem; margin-bottom: 1rem;">{% if editing %}Edit tag{% else %}New tag{% endif %}</h1>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}
+          <p style="color: #dc2626; font-size: 0.85rem;">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">{% if editing %}Save changes{% else %}Create tag{% endif %}</button>
+  </form>
+</div>
+{% endblock %}

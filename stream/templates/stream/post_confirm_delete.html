@@ -1,0 +1,16 @@
+{% extends "stream/base.html" %}
+{% block title %}Delete post — Joyce{% endblock %}
+{% block content %}
+<div style="margin-bottom: 1rem;">
+  <a href="{% url 'post_detail' pk=post.pk %}">&larr; Back to post</a>
+</div>
+<div class="card">
+  <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Delete post</h1>
+  <p style="margin-bottom: 1rem;">Are you sure you want to delete <strong>{{ post.title }}</strong>? This action cannot be undone.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a href="{% url 'post_detail' pk=post.pk %}" class="btn btn-secondary" style="margin-left: 0.5rem;">Cancel</a>
+  </form>
+</div>
+{% endblock %}

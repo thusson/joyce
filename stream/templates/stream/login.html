@@ -1,0 +1,22 @@
+{% extends "stream/base.html" %}
+{% block title %}Log in — Joyce{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 2rem auto;">
+  <h1 style="margin-bottom: 1rem; font-size: 1.5rem;">Log in</h1>
+  {% if form.errors %}
+    <p style="color: #dc2626; margin-bottom: 1rem;">Invalid username or password.</p>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="id_username">Username</label>
+      <input type="text" name="username" id="id_username" class="form-input" autofocus required>
+    </div>
+    <div class="form-group">
+      <label for="id_password">Password</label>
+      <input type="password" name="password" id="id_password" class="form-input" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Log in</button>
+  </form>
+</div>
+{% endblock %}

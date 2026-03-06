@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Joyce{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 800px; margin: 0 auto; padding: 0 1rem; }
+    header { background: #1e293b; color: #fff; padding: 0.75rem 0; margin-bottom: 1.5rem; }
+    header .container { display: flex; justify-content: space-between; align-items: center; }
+    header a { color: #93c5fd; }
+    header .site-title { font-size: 1.25rem; font-weight: 700; color: #fff; }
+    .nav-links { display: flex; gap: 1rem; align-items: center; font-size: 0.875rem; }
+    .btn { display: inline-block; padding: 0.4rem 0.85rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; text-decoration: none; }
+    .btn:hover { text-decoration: none; opacity: 0.9; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-secondary { background: #64748b; color: #fff; }
+    .card { background: #fff; border-radius: 6px; padding: 1.25rem; margin-bottom: 1rem; border: 1px solid #e2e8f0; }
+    .form-input { width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.95rem; font-family: inherit; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+    .tag { display: inline-block; background: #e0e7ff; color: #3730a3; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-right: 0.25rem; }
+    .tag.active { background: #3730a3; color: #fff; }
+    .priority { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; padding: 0.1rem 0.4rem; border-radius: 3px; }
+    .priority-internal { background: #fee2e2; color: #991b1b; }
+    .priority-divisional { background: #fef3c7; color: #92400e; }
+    .priority-organizational { background: #d1fae5; color: #065f46; }
+    .meta { color: #64748b; font-size: 0.85rem; }
+    .unread { border-left: 3px solid #2563eb; }
+    .messages { margin-bottom: 1rem; }
+    .messages li { list-style: none; padding: 0.5rem 0.75rem; border-radius: 4px; margin-bottom: 0.5rem; background: #dbeafe; color: #1e40af; }
+    .sidebar { margin-bottom: 1.5rem; }
+    .filter-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .content-body h1, .content-body h2, .content-body h3 { margin: 1rem 0 0.5rem; }
+    .content-body p { margin-bottom: 0.75rem; }
+    .content-body pre { background: #f1f5f9; padding: 0.75rem; border-radius: 4px; overflow-x: auto; margin-bottom: 0.75rem; }
+    .content-body code { background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
+    .content-body pre code { background: none; padding: 0; }
+    .content-body img { max-width: 100%; height: auto; }
+    .content-body table { border-collapse: collapse; margin-bottom: 0.75rem; }
+    .content-body th, .content-body td { border: 1px solid #cbd5e1; padding: 0.4rem 0.75rem; }
+    table.data-table { width: 100%; border-collapse: collapse; }
+    table.data-table th { text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #64748b; padding: 0.5rem 0.75rem; border-bottom: 2px solid #e2e8f0; }
+    table.data-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+    table.data-table tr:last-child td { border-bottom: none; }
+    .admin-nav { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .admin-nav a { padding: 0.4rem 0.85rem; border-radius: 4px; background: #e2e8f0; color: #334155; font-size: 0.875rem; }
+    .admin-nav a:hover { text-decoration: none; background: #cbd5e1; }
+    .admin-nav a.active { background: #1e293b; color: #fff; }
+    .badge { display: inline-block; background: #e2e8f0; color: #334155; padding: 0.1rem 0.5rem; border-radius: 3px; font-size: 0.8rem; }
+    .badge-inactive { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="{% url 'post_list' %}" class="site-title">Joyce</a>
+      <div class="nav-links">
+        {% if user.is_authenticated %}
+          {% if user_profile.is_admin %}<a href="{% url 'admin_dashboard' %}">Manage</a>{% endif %}
+          <span>{{ user.username }}</span>
+          <a href="{% url 'logout' %}">Log out</a>
+        {% else %}
+          <a href="{% url 'login' %}">Log in</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+  <div class="container">
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>
